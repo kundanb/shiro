@@ -53,7 +53,7 @@ function main() {
                             type: 'list',
                             name: 'action',
                             message: 'What would you like to do?',
-                            choices: ['👆 Send File', '👇 Receive File'],
+                            choices: ['Send File', 'Receive File'],
                         },
                     ])];
                 case 1:

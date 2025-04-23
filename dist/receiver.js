@@ -14,14 +14,17 @@ function startReceiver() {
         .prompt([
         {
             type: 'input',
-            name: 'senderIP',
-            message: "Enter the sender's public IP:",
-            validate: function (input) { return input.trim() !== '' || 'IP address is required'; },
+            name: 'token',
+            message: 'Enter the token provided by the sender:',
+            validate: function (input) { return input.trim() !== '' || 'Token is required'; },
         },
     ])
         .then(function (_a) {
-        var senderIP = _a.senderIP;
-        var socket = (0, socket_io_client_1.io)("ws://".concat(senderIP, ":3000"));
+        var token = _a.token;
+        var socket = (0, socket_io_client_1.io)("ws://localhost:3000");
+        socket.on('request-token', function () {
+            socket.emit('token-verified', token);
+        });
         socket.on('file-meta', function (_a) {
             var name = _a.name, size = _a.size;
             console.log(chalk_1.default.yellow("\nReceiving file: ".concat(name, " (").concat(size, " bytes)")));
@@ -35,7 +38,7 @@ function startReceiver() {
             });
         });
         socket.on('connect_error', function (err) {
-            console.log(chalk_1.default.red('Failed to connect to sender. Please check the IP.'));
+            console.log(chalk_1.default.red('Failed to connect to sender. Please check the token.'));
             console.error(err);
         });
     })
