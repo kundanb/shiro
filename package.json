@@ -2,9 +2,9 @@
   "name": "shiro",
   "version": "1.0.0",
   "description": "A Node.js CLI for file sharing over the network using sockets",
-  "main": "dist/bin/cli.js",
+  "main": "dist/cli.js",
   "bin": {
-    "shiro": "dist/bin/cli.js"
+    "shiro": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
