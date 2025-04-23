@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import http from 'http'
+import { v4 as uuidv4 } from 'uuid'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
-import fetch from 'node-fetch'
 import express from 'express'
 import { Server } from 'socket.io'
 
@@ -26,31 +26,39 @@ export default function startSender() {
       const filePath = path.join(currentDir, selectedFile)
       const fileSize = fs.statSync(filePath).size
 
-      const res = await fetch('https://api.ipify.org?format=json')
-      const publicIP = ((await res.json()) as { ip: string }).ip
+      const token = uuidv4()
+      console.log(chalk.green(`\n🚀 File sender ready. Share the token with the receiver:`))
+      console.log(chalk.cyanBright(`Token: ${token}`))
 
       const app = express()
       const server = http.createServer(app)
       const io = new Server(server)
 
       server.listen(PORT, () => {
-        console.log(chalk.green(`\n🚀 File sender ready on:`))
-        console.log(chalk.cyanBright(`ws://${publicIP}:${PORT}`))
-        console.log(chalk.yellow('Waiting for receiver to connect...'))
+        console.log(chalk.green(`\nWaiting for receiver to connect using the token...`))
       })
 
       io.on('connection', socket => {
-        console.log(chalk.green('\n🎉 Receiver connected! Sending file...'))
+        socket.emit('request-token')
 
-        socket.emit('file-meta', { name: selectedFile, size: fileSize })
+        socket.on('token-verified', (receivedToken: string) => {
+          if (receivedToken === token) {
+            console.log(chalk.green('\n🎉 Receiver connected with the correct token! Sending file...'))
 
-        const stream = fs.createReadStream(filePath, {
-          highWaterMark: 64 * 1024,
-        })
-        stream.on('data', chunk => socket.emit('file-chunk', chunk))
-        stream.on('end', () => {
-          socket.emit('file-complete')
-          console.log(chalk.blue('\n✅ File sent successfully!'))
+            socket.emit('file-meta', { name: selectedFile, size: fileSize })
+
+            const stream = fs.createReadStream(filePath, {
+              highWaterMark: 64 * 1024,
+            })
+            stream.on('data', chunk => socket.emit('file-chunk', chunk))
+            stream.on('end', () => {
+              socket.emit('file-complete')
+              console.log(chalk.blue('\n✅ File sent successfully!'))
+            })
+          } else {
+            console.log(chalk.red('Invalid token. Disconnecting the receiver.'))
+            socket.disconnect()
+          }
         })
       })
     })

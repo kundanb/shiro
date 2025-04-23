@@ -14,13 +14,17 @@ export default function startReceiver(): void {
     .prompt([
       {
         type: 'input',
-        name: 'senderIP',
-        message: "Enter the sender's public IP:",
-        validate: (input: string) => input.trim() !== '' || 'IP address is required',
+        name: 'token',
+        message: 'Enter the token provided by the sender:',
+        validate: (input: string) => input.trim() !== '' || 'Token is required',
       },
     ])
-    .then(({ senderIP }: { senderIP: string }) => {
-      const socket = io(`ws://${senderIP}:3000`)
+    .then(({ token }: { token: string }) => {
+      const socket = io(`ws://localhost:3000`)
+
+      socket.on('request-token', () => {
+        socket.emit('token-verified', token)
+      })
 
       socket.on('file-meta', ({ name, size }: FileMeta) => {
         console.log(chalk.yellow(`\nReceiving file: ${name} (${size} bytes)`))
@@ -37,7 +41,7 @@ export default function startReceiver(): void {
       })
 
       socket.on('connect_error', (err: Error) => {
-        console.log(chalk.red('Failed to connect to sender. Please check the IP.'))
+        console.log(chalk.red('Failed to connect to sender. Please check the token.'))
         console.error(err)
       })
     })
