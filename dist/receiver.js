@@ -18,10 +18,17 @@ function startReceiver() {
             message: 'Enter the token provided by the sender:',
             validate: function (input) { return input.trim() !== '' || 'Token is required'; },
         },
+        {
+            type: 'input',
+            name: 'senderIP',
+            message: "Enter the sender's public IP:",
+            validate: function (input) { return input.trim() !== '' || 'IP address is required'; },
+        },
     ])
         .then(function (_a) {
-        var token = _a.token;
-        var socket = (0, socket_io_client_1.io)("ws://localhost:3000");
+        var token = _a.token, senderIP = _a.senderIP;
+        var socket = (0, socket_io_client_1.io)("ws://".concat(senderIP, ":3000"));
+        // Request the sender for the token validation
         socket.on('request-token', function () {
             socket.emit('token-verified', token);
         });
@@ -38,7 +45,7 @@ function startReceiver() {
             });
         });
         socket.on('connect_error', function (err) {
-            console.log(chalk_1.default.red('Failed to connect to sender. Please check the token.'));
+            console.log(chalk_1.default.red('Failed to connect to sender. Please check the IP.'));
             console.error(err);
         });
     })

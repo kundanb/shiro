@@ -43,11 +43,12 @@ exports.default = startSender;
 var fs_1 = __importDefault(require("fs"));
 var path_1 = __importDefault(require("path"));
 var http_1 = __importDefault(require("http"));
-var uuid_1 = require("uuid");
 var inquirer_1 = __importDefault(require("inquirer"));
 var chalk_1 = __importDefault(require("chalk"));
 var express_1 = __importDefault(require("express"));
+var node_fetch_1 = __importDefault(require("node-fetch"));
 var socket_io_1 = require("socket.io");
+var uuid_1 = require("uuid");
 var PORT = 3000;
 function startSender() {
     var _this = this;
@@ -63,42 +64,54 @@ function startSender() {
         },
     ])
         .then(function (_a) { return __awaiter(_this, [_a], void 0, function (_b) {
-        var filePath, fileSize, token, app, server, io;
+        var filePath, fileSize, res, publicIP, token, app, server, io;
         var selectedFile = _b.selectedFile;
         return __generator(this, function (_c) {
-            filePath = path_1.default.join(currentDir, selectedFile);
-            fileSize = fs_1.default.statSync(filePath).size;
-            token = (0, uuid_1.v4)();
-            console.log(chalk_1.default.green("\n\uD83D\uDE80 File sender ready. Share the token with the receiver:"));
-            console.log(chalk_1.default.cyanBright("Token: ".concat(token)));
-            app = (0, express_1.default)();
-            server = http_1.default.createServer(app);
-            io = new socket_io_1.Server(server);
-            server.listen(PORT, function () {
-                console.log(chalk_1.default.green("\nWaiting for receiver to connect using the token..."));
-            });
-            io.on('connection', function (socket) {
-                socket.emit('request-token');
-                socket.on('token-verified', function (receivedToken) {
-                    if (receivedToken === token) {
-                        console.log(chalk_1.default.green('\n🎉 Receiver connected with the correct token! Sending file...'));
-                        socket.emit('file-meta', { name: selectedFile, size: fileSize });
-                        var stream = fs_1.default.createReadStream(filePath, {
-                            highWaterMark: 64 * 1024,
+            switch (_c.label) {
+                case 0:
+                    filePath = path_1.default.join(currentDir, selectedFile);
+                    fileSize = fs_1.default.statSync(filePath).size;
+                    return [4 /*yield*/, (0, node_fetch_1.default)('https://api.ipify.org?format=json')];
+                case 1:
+                    res = _c.sent();
+                    return [4 /*yield*/, res.json()];
+                case 2:
+                    publicIP = (_c.sent()).ip;
+                    token = (0, uuid_1.v4)();
+                    console.log(chalk_1.default.green("\n\uD83D\uDE80 File sender ready. Share the token with the receiver:"));
+                    console.log(chalk_1.default.cyanBright("Token: ".concat(token)));
+                    console.log(chalk_1.default.cyanBright("Sender's Public IP: ".concat(publicIP)));
+                    app = (0, express_1.default)();
+                    server = http_1.default.createServer(app);
+                    io = new socket_io_1.Server(server);
+                    server.listen(PORT, function () {
+                        console.log(chalk_1.default.green("\nWaiting for receiver to connect using the token..."));
+                    });
+                    // Handle receiver connection based on token
+                    io.on('connection', function (socket) {
+                        // Ask for the token from the receiver
+                        socket.emit('request-token');
+                        socket.on('token-verified', function (receivedToken) {
+                            if (receivedToken === token) {
+                                console.log(chalk_1.default.green('\n🎉 Receiver connected with the correct token! Sending file...'));
+                                socket.emit('file-meta', { name: selectedFile, size: fileSize });
+                                var stream = fs_1.default.createReadStream(filePath, {
+                                    highWaterMark: 64 * 1024,
+                                });
+                                stream.on('data', function (chunk) { return socket.emit('file-chunk', chunk); });
+                                stream.on('end', function () {
+                                    socket.emit('file-complete');
+                                    console.log(chalk_1.default.blue('\n✅ File sent successfully!'));
+                                });
+                            }
+                            else {
+                                console.log(chalk_1.default.red('Invalid token. Disconnecting the receiver.'));
+                                socket.disconnect();
+                            }
                         });
-                        stream.on('data', function (chunk) { return socket.emit('file-chunk', chunk); });
-                        stream.on('end', function () {
-                            socket.emit('file-complete');
-                            console.log(chalk_1.default.blue('\n✅ File sent successfully!'));
-                        });
-                    }
-                    else {
-                        console.log(chalk_1.default.red('Invalid token. Disconnecting the receiver.'));
-                        socket.disconnect();
-                    }
-                });
-            });
-            return [2 /*return*/];
+                    });
+                    return [2 /*return*/];
+            }
         });
     }); })
         .catch(function (err) { return console.error(err); });

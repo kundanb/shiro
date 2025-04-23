@@ -18,10 +18,17 @@ export default function startReceiver(): void {
         message: 'Enter the token provided by the sender:',
         validate: (input: string) => input.trim() !== '' || 'Token is required',
       },
+      {
+        type: 'input',
+        name: 'senderIP',
+        message: "Enter the sender's public IP:",
+        validate: (input: string) => input.trim() !== '' || 'IP address is required',
+      },
     ])
-    .then(({ token }: { token: string }) => {
-      const socket = io(`ws://localhost:3000`)
+    .then(({ token, senderIP }: { token: string; senderIP: string }) => {
+      const socket = io(`ws://${senderIP}:3000`)
 
+      // Request the sender for the token validation
       socket.on('request-token', () => {
         socket.emit('token-verified', token)
       })
@@ -41,7 +48,7 @@ export default function startReceiver(): void {
       })
 
       socket.on('connect_error', (err: Error) => {
-        console.log(chalk.red('Failed to connect to sender. Please check the token.'))
+        console.log(chalk.red('Failed to connect to sender. Please check the IP.'))
         console.error(err)
       })
     })

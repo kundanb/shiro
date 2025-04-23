@@ -1,11 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import http from 'http'
-import { v4 as uuidv4 } from 'uuid'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
 import express from 'express'
+import fetch from 'node-fetch'
 import { Server } from 'socket.io'
+import { v4 as uuidv4 } from 'uuid'
 
 const PORT = 3000
 
@@ -26,10 +27,17 @@ export default function startSender() {
       const filePath = path.join(currentDir, selectedFile)
       const fileSize = fs.statSync(filePath).size
 
+      // Fetch the public IP of the sender
+      const res = await fetch('https://api.ipify.org?format=json')
+      const publicIP = ((await res.json()) as { ip: string }).ip
+
+      // Generate a unique token for this file transfer session
       const token = uuidv4()
       console.log(chalk.green(`\n🚀 File sender ready. Share the token with the receiver:`))
       console.log(chalk.cyanBright(`Token: ${token}`))
+      console.log(chalk.cyanBright(`Sender's Public IP: ${publicIP}`))
 
+      // Create the server and Socket.io connection
       const app = express()
       const server = http.createServer(app)
       const io = new Server(server)
@@ -38,7 +46,9 @@ export default function startSender() {
         console.log(chalk.green(`\nWaiting for receiver to connect using the token...`))
       })
 
+      // Handle receiver connection based on token
       io.on('connection', socket => {
+        // Ask for the token from the receiver
         socket.emit('request-token')
 
         socket.on('token-verified', (receivedToken: string) => {
