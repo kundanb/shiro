@@ -69,4 +69,4 @@ function main() {
         });
     });
 }
-main().catch(function (err) { return console.error(err); });
+main();

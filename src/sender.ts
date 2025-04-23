@@ -1,68 +1,59 @@
 import fs from 'fs'
 import path from 'path'
-import http from 'http'
-import { Server } from 'socket.io'
-import inquirer from 'inquirer'
 import chalk from 'chalk'
-import crypto from 'crypto'
+import inquirer from 'inquirer'
+import { io } from 'socket.io-client'
 
-const PORT = 3000
+export default async function startSender() {
+  // Ask for the token from the sender
+  const { token } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'token',
+      message: 'Enter the receiver token:',
+      validate: (input: string) => input.trim() !== '' || 'Token is required',
+    },
+  ])
 
-const generateToken = (): string => {
-  return crypto.randomBytes(16).toString('hex') // generates a unique token
-}
+  // Extract receiver's public IP from the token (Base64 Decoding)
+  const decoded = Buffer.from(token, 'base64').toString('utf-8')
+  const [uid, publicIP] = decoded.split('|')
 
-export default function startSender() {
+  console.log(chalk.green(`Connecting to receiver at ws://${publicIP}:3000`))
+
+  // Ask the sender to choose a file
   const currentDir = process.cwd()
   const allFiles = fs.readdirSync(currentDir).filter(f => fs.lstatSync(path.join(currentDir, f)).isFile())
 
-  inquirer
-    .prompt([
-      {
-        type: 'list',
-        name: 'selectedFile',
-        message: '📄 Choose a file to send:',
-        choices: allFiles,
-      },
-    ])
-    .then(async ({ selectedFile }) => {
-      const filePath = path.join(currentDir, selectedFile)
-      const fileSize = fs.statSync(filePath).size
+  const { selectedFile } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'selectedFile',
+      message: '📄 Choose a file to send:',
+      choices: allFiles,
+    },
+  ])
 
-      const token = generateToken() // Generate a new token for authentication
-      console.log(chalk.green(`\n🚀 Token for receiver: ${token}`))
-      console.log(chalk.yellow('Please share this token with the receiver'))
+  const filePath = path.join(currentDir, selectedFile)
+  const fileSize = fs.statSync(filePath).size
 
-      const app = http.createServer()
-      const io = new Server(app)
+  const socket = io(`ws://${publicIP}:3000`)
 
-      app.listen(PORT, () => {
-        console.log(chalk.green(`\n🚀 File sender ready on:`))
-        console.log(chalk.cyanBright(`ws://localhost:${PORT}`))
-        console.log(chalk.yellow('Waiting for receiver to connect...'))
-      })
+  socket.on('connect', () => {
+    console.log(chalk.green(`Connected to receiver at ws://${publicIP}:3000`))
 
-      io.on('connection', socket => {
-        console.log(chalk.green('\n🎉 Receiver connected!'))
+    socket.emit('file-meta', { name: selectedFile, size: fileSize })
 
-        socket.on('token-verified', (receivedToken: string) => {
-          if (receivedToken === token) {
-            console.log(chalk.green('Token verified! Sending file...'))
-            socket.emit('file-meta', { name: selectedFile, size: fileSize })
-
-            const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 })
-            stream.on('data', chunk => socket.emit('file-chunk', chunk))
-            stream.on('end', () => {
-              socket.emit('file-complete')
-              console.log(chalk.blue('\n✅ File sent successfully!'))
-            })
-          } else {
-            socket.emit('invalid-token', 'Invalid token. Connection closed.')
-            socket.disconnect()
-            console.log(chalk.red('❌ Invalid token'))
-          }
-        })
-      })
+    const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 })
+    stream.on('data', chunk => socket.emit('file-chunk', chunk))
+    stream.on('end', () => {
+      socket.emit('file-complete')
+      console.log(chalk.blue('File sent successfully!'))
     })
-    .catch(err => console.error(err))
+  })
+
+  socket.on('connect_error', err => {
+    console.log(chalk.red('Failed to connect to receiver. Please check the token or receiver IP.'))
+    console.error(err)
+  })
 }
