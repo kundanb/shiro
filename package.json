@@ -6,6 +6,10 @@
   "bin": {
     "shiro": "dist/bin/cli.js"
   },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "husky"
+  },
   "dependencies": {
     "chalk": "^5.4.1",
     "express": "^5.1.0",
@@ -17,6 +21,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
+    "husky": "^9.1.7",
     "typescript": "^5.8.3"
   }
 }
