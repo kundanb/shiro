@@ -2,9 +2,9 @@
   "name": "shiro",
   "version": "1.0.0",
   "description": "A Node.js CLI for file sharing over the network using sockets",
-  "main": "dist/cli.js",
+  "main": "dist/bin/cli.js",
   "bin": {
-    "shiro": "dist/cli.js"
+    "shiro": "dist/bin/cli.js"
   },
   "dependencies": {
     "chalk": "^5.4.1",
